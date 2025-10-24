@@ -1,0 +1,54 @@
+# AI Video Guide MVP - Dependencies
+
+# Core video processing
+moviepy>=1.0.3
+opencv-python>=4.8.0
+numpy>=1.24.0
+
+# OCR and text processing
+easyocr>=1.7.0
+Pillow>=10.0.0
+paddleocr 
+pytesseract
+
+# AI and API integrations
+openai>=1.0.0
+requests>=2.31.0
+
+# Text-to-speech
+gtts>=2.4.0
+elevenlabs>=0.2.26
+
+# Audio processing
+pydub>=0.25.1
+scipy>=1.11.0
+
+# Scene detection (alternative)
+scenedetect[opencv]>=0.6.2
+
+# Utilities
+pathlib2>=2.3.7
+python-dotenv>=1.0.0
+
+# Development and testing (optional)
+pytest>=7.4.0
+pytest-cov>=4.1.0
+black>=23.0.0
+flake8>=6.0.0
+
+# Additional dependencies for better performance
+torch>=2.0.0  # For EasyOCR GPU support
+torchvision>=0.15.0
+
+# Image processing enhancements
+scikit-image>=0.21.0
+matplotlib>=3.7.0  # For debugging and visualization
+
+# File handling
+tqdm>=4.65.0  # Progress bars
+python-dotenv
+scenedetect[opencv]
+
+fastapi 
+uvicorn 
+python-multipart 
