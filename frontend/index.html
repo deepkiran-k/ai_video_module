@@ -82,7 +82,6 @@
   
   .form-group:nth-child(1) { animation-delay: 0.1s; }
   .form-group:nth-child(2) { animation-delay: 0.2s; }
-  .form-group:nth-child(3) { animation-delay: 0.3s; }
   
   @keyframes fadeIn {
     from { 
@@ -143,7 +142,7 @@
     margin-right: 10px;
   }
   
-  textarea, select {
+  textarea {
     width: 100%;
     padding: 15px;
     border-radius: 12px;
@@ -152,27 +151,14 @@
     font-family: inherit;
     transition: all 0.3s ease;
     background: #fff;
-  }
-  
-  textarea:focus, select:focus {
-    outline: none;
-    border-color: #667eea;
-    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
-  }
-  
-  textarea {
     resize: vertical;
     min-height: 120px;
   }
   
-  select {
-    cursor: pointer;
-    appearance: none;
-    background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23667eea" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>');
-    background-repeat: no-repeat;
-    background-position: right 12px center;
-    background-size: 20px;
-    padding-right: 40px;
+  textarea:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
   }
   
   button {
@@ -214,12 +200,41 @@
     font-weight: 500;
     border-radius: 12px;
     animation: pulse 2s ease-in-out infinite;
-    display: none; /* Hide by default */
+    display: none;
   }
   
   @keyframes pulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.7; }
+  }
+  
+  .progress-container {
+    margin-top: 20px;
+    display: none;
+  }
+  
+  .progress-bar {
+    width: 100%;
+    height: 8px;
+    background: #e0e0e0;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 10px;
+  }
+  
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    width: 0%;
+    transition: width 0.5s ease;
+    border-radius: 10px;
+  }
+  
+  .timer {
+    text-align: center;
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #667eea;
   }
   
   #video-container {
@@ -269,6 +284,29 @@
       font-size: 2rem;
     }
   }
+  select {
+    width: 100%;
+    padding: 15px;
+    border-radius: 12px;
+    border: 2px solid #e0e0e0;
+    font-size: 1rem;
+    font-family: inherit;
+    transition: all 0.3s ease;
+    background: #fff;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%27292.4%27%20height%3D%27292.4%27%3E%3Cpath%20fill%3D%27%23667eea%27%20d%3D%27M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-13%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2013l128%20128c3.6%203.6%207.8%205.4%2013%205.4s9.4-1.8%2013-5.4l128-128c3.6-3.6%205.4-7.8%205.4-13%200-4.8-1.8-9.2-5.4-12.8z%27%2F%3E%3C%2Fsvg%3E");
+    background-repeat: no-repeat;
+    background-position: right 15px center;
+    background-size: 0.8em;
+  }
+  
+  select:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+  }
 </style>
 </head>
 <body>
@@ -278,7 +316,8 @@
   <p class="subtitle">Transform your videos with AI-powered guidance</p>
 
   <div class="form-group">
-    <label for="video-input-element">Upload Video</label> <div class="file-input-wrapper">
+    <label for="video-input-element">Upload Video</label>
+    <div class="file-input-wrapper">
       <input type="file" id="video-input-element" name="video" accept="video/*">
       <label for="video-input-element" class="file-input-label">
         Choose Video File
@@ -291,35 +330,48 @@
     <label for="prompt">Guide Prompt</label>
     <textarea id="prompt" name="prompt" placeholder="Describe what you want the video guide to focus on..."></textarea>
   </div>
-
   <div class="form-group">
-    <label for="videoType">Video Type</label>
-    <select id="videoType" name="video_type">
-      <option value="direct">Direct Video </option>
-      <option value="creative">Creative Video </option>
+    <label for="voice-select">Choose a Voice</label>
+    <select id="voice-select" name="voice">
+      <option value="nova" selected>Nova (Female, Clear)</option>
+      <option value="alloy">Alloy (Male, Professional)</option>
+      <option value="echo">Echo (Male, Upbeat)</option>
+      <option value="fable">Fable (Male, Storyteller)</option>
+      <option value="onyx">Onyx (Male, Deep)</option>
+      <option value="shimmer">Shimmer (Female, Breathy)</option>
     </select>
   </div>
-
   <button id="generateBtn">🚀 Generate Video</button>
 
   <div id="status"></div>
+  
+  <div class="progress-container" id="progressContainer">
+    <div class="progress-bar">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+    <div class="timer" id="timer">Processing: 0%</div>
+  </div>
 
   <div id="video-container"></div>
 </div>
 
 <script>
-// --- DOM Element Selection ---
 const videoInput = document.getElementById('video-input-element');
 const promptInput = document.getElementById('prompt');
-const videoTypeSelect = document.getElementById('videoType');
+const voiceInput = document.getElementById('voice-select');
 const generateBtn = document.getElementById('generateBtn');
 const statusEl = document.getElementById('status');
 const videoContainer = document.getElementById('video-container');
 const fileNameEl = document.getElementById('fileName');
+const progressContainer = document.getElementById('progressContainer');
+const progressFill = document.getElementById('progressFill');
+const timerEl = document.getElementById('timer');
 
-let pollingInterval; // Variable to hold the interval ID
+let pollingInterval;
+let progressInterval;
+let startTime;
+const PROCESSING_TIME = 480; // 8 minutes in seconds
 
-// --- Event Listener for File Input ---
 videoInput.addEventListener('change', (e) => {
   if (e.target.files[0]) {
     fileNameEl.textContent = `📎 ${e.target.files[0].name}`;
@@ -329,27 +381,26 @@ videoInput.addEventListener('change', (e) => {
   }
 });
 
-// --- Main Function on Generate Button Click ---
 generateBtn.addEventListener('click', async () => {
-  // 1. Validate Inputs
   if (!videoInput.files[0] || !promptInput.value.trim()) {
     alert("Please upload a video and enter a prompt.");
     return;
   }
+  
 
-  // 2. Reset the UI for a new request
   generateBtn.disabled = true;
   videoContainer.innerHTML = "";
-  clearInterval(pollingInterval); // Stop any previous polling
-  updateStatus("⏳ Uploading and starting process...", "loading-message");
+  clearInterval(pollingInterval);
+  clearInterval(progressInterval);
+  
+  updateStatus("⏳ Uploading video...", "loading-message");
+  progressContainer.style.display = 'none';
 
-  // 3. Prepare Form Data
   const formData = new FormData();
   formData.append('video', videoInput.files[0]);
   formData.append('prompt', promptInput.value);
-  formData.append('video_type', videoTypeSelect.value);
+  formData.append('voice', voiceInput.value);
 
-  // 4. Send Initial Request to the Backend
   try {
     const response = await fetch('http://localhost:8000/api/generate-video', {
       method: 'POST',
@@ -363,34 +414,47 @@ generateBtn.addEventListener('click', async () => {
 
     const data = await response.json();
     
-    // 5. Start Polling for the Result
-    // Give a more specific message for the long wait
-    if (videoTypeSelect.value === 'direct') {
-      updateStatus("⏳ Processing... This will take 3 minutes.", "loading-message");
-    } else {
-      updateStatus("⏳ Processing...", "loading-message");
-    }
-
+    updateStatus("🎨 Processing video....", "loading-message");
+    progressContainer.style.display = 'block';
+    
+    startTime = Date.now();
+    startProgressTimer();
     pollForVideoStatus(data.status_url, data.request_id);
 
   } catch (err) {
     updateStatus(`❌ Error: ${err.message}`, 'error-message');
     generateBtn.disabled = false;
+    progressContainer.style.display = 'none';
   }
 });
 
+function startProgressTimer() {
+  // Set initial text
+  timerEl.textContent = 'Processing: 0%';
+  progressFill.style.width = '0%';
+  
+  progressInterval = setInterval(() => {
+    const elapsed = Math.floor((Date.now() - startTime) / 1000);
+    const progress = Math.min((elapsed / PROCESSING_TIME) * 100, 99);
+    
+    progressFill.style.width = `${progress}%`;
+    
+    // --- THIS IS THE FIX ---
+    // Change the text content to show the rounded percentage
+    timerEl.textContent = `Processing: ${Math.floor(progress)}%`;
+    // --- END FIX ---
+    
+    if (elapsed >= PROCESSING_TIME) {
+      clearInterval(progressInterval);
+    }
+  }, 1000);
+}
 
-/**
- * Polls the status endpoint until the video is ready or fails.
- * @param {string} statusUrl - The URL to poll for status updates.
- * @param {string} requestId - The unique ID for this video request.
- */
 function pollForVideoStatus(statusUrl, requestId) {
   pollingInterval = setInterval(async () => {
     try {
       const response = await fetch(statusUrl);
       if (!response.ok) {
-        // Don't stop polling for minor network errors, just wait for the next interval
         console.warn('Polling request failed, retrying...');
         return;
       }
@@ -398,49 +462,46 @@ function pollForVideoStatus(statusUrl, requestId) {
 
       if (data.status === 'completed') {
         clearInterval(pollingInterval);
+        clearInterval(progressInterval);
+        progressFill.style.width = '100%';
+        // You can optionally update the text to 100% here
+        timerEl.textContent = 'Processing: 100%';
         updateStatus("✅ Video generated successfully!", 'success-message');
+        progressContainer.style.display = 'none';
         displayVideo(requestId);
         generateBtn.disabled = false;
       } else if (data.status === 'failed') {
         clearInterval(pollingInterval);
+        clearInterval(progressInterval);
         updateStatus(`❌ Error: ${data.error}`, 'error-message');
+        progressContainer.style.display = 'none';
         generateBtn.disabled = false;
       }
-      // If status is 'processing', the interval will simply run again.
 
     } catch (err) {
-      // If a major error occurs (e.g., server down), stop polling.
       clearInterval(pollingInterval);
+      clearInterval(progressInterval);
       updateStatus(`❌ Polling failed: ${err.message}`, 'error-message');
+      progressContainer.style.display = 'none';
       generateBtn.disabled = false;
     }
-  }, 3000); // Check status every 3 seconds
+  }, 3000);
 }
 
-/**
- * Creates and displays the final video element.
- * @param {string} requestId - The unique ID for the video.
- */
 function displayVideo(requestId) {
   const videoUrl = `http://localhost:8000/api/video/${requestId}`;
   const videoEl = document.createElement('video');
   videoEl.src = videoUrl;
   videoEl.controls = true;
   videoEl.autoplay = true;
-  videoEl.muted = true; // Autoplay often requires the video to be muted
+  videoEl.muted = true;
   videoContainer.appendChild(videoEl);
 }
 
-/**
- * Updates the status message element with new text and class.
- * @param {string} message - The message to display.
- * @param {string} className - The CSS class to apply for styling.
- */
 function updateStatus(message, className) {
   statusEl.textContent = message;
   statusEl.className = className;
   statusEl.style.display = 'block';
-  // Remove the pulsing animation for final states
   if (className.includes('success') || className.includes('error')) {
     statusEl.style.animation = 'none';
   } else {

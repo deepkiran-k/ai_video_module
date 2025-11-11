@@ -1,162 +1,163 @@
-# # main.py
+# import sys
 # from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 # from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 # from fastapi.middleware.cors import CORSMiddleware
 # from pathlib import Path
-# import subprocess
 # import shutil
 # import uuid
+# import asyncio
+# import traceback
+# # 'Optional' is no longer needed
+# # from typing import Optional 
 
-# app = FastAPI(title="AI Video Guide Generator API")
+# app = FastAPI(title="AI Video Guide Generator API (Demo Mode)")
 
-# # Enable CORS for frontend
+# # --- Configuration ---
+# BASE_DIR = Path(__file__).resolve().parent
+# UPLOAD_DIR = BASE_DIR / "uploads"
+# OUTPUT_DIR = BASE_DIR / "outputs"
+# FRONTEND_DIR = BASE_DIR / "frontend"
+
+# # Create necessary directories
+# UPLOAD_DIR.mkdir(exist_ok=True)
+# OUTPUT_DIR.mkdir(exist_ok=True)
+# FRONTEND_DIR.mkdir(exist_ok=True)
+
+# # --- Middleware ---
 # app.add_middleware(
 #     CORSMiddleware,
-#     allow_origins=["*"],  # replace with your frontend URL in production
+#     allow_origins=["*"],
 #     allow_credentials=True,
 #     allow_methods=["*"],
 #     allow_headers=["*"],
 # )
 
-# UPLOAD_DIR = Path("uploads")
-# OUTPUT_DIR = Path("outputs")
-# UPLOAD_DIR.mkdir(exist_ok=True)
-# OUTPUT_DIR.mkdir(exist_ok=True)
-
-# # Store processing status
+# # --- In-memory Store ---
 # processing_status = {}
 
-# # Serve the HTML UI
-# @app.get("/", response_class=HTMLResponse)
-# async def root():
-#     index_path = Path("frontend/index.html")
-#     if not index_path.exists():
-#         return HTMLResponse("<h1>Frontend not found</h1>", status_code=404)
-#     return index_path.read_text(encoding="utf-8")
+# # --- Helper Function for DEMO Background Processing ---
+# async def find_demo_video(request_id: str, original_filename: str):
+#     """
+#     This is the new "demo" function. It doesn't run any pipeline.
+#     It just finds the pre-generated video that matches the uploaded filename.
+#     """
+#     try:
+#         # 1. Get the base name (e.g., "screen_recording1")
+#         base_name = Path(original_filename).stem
+#         print(f"[{request_id}] DEMO MODE: Looking for pre-generated video for '{base_name}'")
+        
+#         # 2. Construct the expected path
+#         final_video_path = OUTPUT_DIR / base_name / f"{base_name}_final_guide.mp4"
 
+#         # 3. Simulate a 4-minute processing time
+#         print(f"[{request_id}] Simulating 4-minute processing time...")
+#         await asyncio.sleep(240) 
+
+#         # 4. Check if the demo file actually exists
+#         if not final_video_path.is_file():
+#             print(f"[{request_id}] FAILED: Demo video not found at {final_video_path}")
+#             processing_status[request_id].update({
+#                 "status": "failed",
+#                 "error": f"Demo video '{final_video_path.name}' not found. Make sure it is pre-generated in the 'outputs/{base_name}/' folder."
+#             })
+#             return
+
+#         # 5. If it exists, mark as 'completed' and provide the path
+#         print(f"[{request_id}] SUCCESS: Found demo video at {final_video_path}")
+#         processing_status[request_id].update({
+#             "status": "completed",
+#             "output_path": str(final_video_path)
+#         })
+
+#     except Exception as e:
+#         print(f"[{request_id}] FAILED: An unexpected error occurred: {e}")
+#         traceback.print_exc()
+#         processing_status[request_id].update({"status": "failed", "error": str(e)})
+
+# # --- API Endpoints ---
+# @app.get("/", response_class=HTMLResponse)
+# async def serve_frontend():
+#     index_path = FRONTEND_DIR / "index.html"
+#     if not index_path.is_file():
+#         return HTMLResponse("<h1>Frontend/index.html not found</h1>", status_code=404)
+#     return FileResponse(index_path)
 
 # @app.post("/api/generate-video")
 # async def generate_video(
 #     video: UploadFile = File(...),
-#     prompt: str = Form(...),
-#     video_type: str = Form(...)
+#     prompt: str = Form(...)
+#     # --- FIX ---
+#     # 'video_type' parameter has been completely removed.
+#     # --- END FIX ---
 # ):
 #     request_id = str(uuid.uuid4())
-
+    
+#     # We still save the uploaded file, but we won't process it.
+#     video_path = UPLOAD_DIR / f"{request_id}_{video.filename}"
 #     try:
-#         # Save uploaded video
-#         video_path = UPLOAD_DIR / f"{request_id}_{video.filename}"
 #         with open(video_path, "wb") as buffer:
 #             shutil.copyfileobj(video.file, buffer)
-
-#         # Output path
-#         output_path = OUTPUT_DIR / f"{request_id}_output.mp4"
-
-#         # Update status
-#         processing_status[request_id] = {"status": "processing", "video_type": video_type, "prompt": prompt}
-
-#         # Determine command
-#         if video_type == "direct":
-#             # Direct workflow: video_path + prompt
-#             command = ["python", "run_pipeline_direct.py", str(video_path), prompt]
-
-#         else:  # creative
-#             # Project name = uploaded video filename without extension
-#             project_name = video_path.stem
-#             project_folder = UPLOAD_DIR / project_name
-#             project_folder.mkdir(exist_ok=True)
-#             shutil.move(str(video_path), project_folder / video_path.name)
-
-#             # Assemble video using project_name
-#             command = ["python", "assemble_video.py", project_name]
-
-#         # Run subprocess with utf-8 decoding
-#         result = subprocess.run(
-#             command,
-#             stdout=subprocess.PIPE,
-#             stderr=subprocess.PIPE,
-#             text=True,
-#             encoding="utf-8",
-#             errors="ignore",
-#             timeout=600
-#         )
-
-#         if result.returncode != 0:
-#             processing_status[request_id]["status"] = "failed"
-#             processing_status[request_id]["error"] = result.stderr
-#             raise HTTPException(status_code=500, detail=f"Video generation failed: {result.stderr}")
-
-#         # Determine the final video path
-#         if video_type == "direct":
-#             final_video_path = video_path.with_name(f"{request_id}_output.mp4")
-#         else:
-#             # assemble_video.py typically outputs inside outputs/ or project folder
-#             final_video_path = OUTPUT_DIR / f"{request_id}_output.mp4"
-#             if not final_video_path.exists():
-#                 # fallback: check inside project folder
-#                 final_video_path = project_folder / "output.mp4"
-#                 if not final_video_path.exists():
-#                     raise HTTPException(status_code=500, detail="Output video not found after creative workflow")
-
-#         processing_status[request_id]["status"] = "completed"
-#         processing_status[request_id]["output_path"] = str(final_video_path)
-
-#         return JSONResponse({
-#             "request_id": request_id,
-#             "status": "completed",
-#             "message": "Video generated successfully",
-#             "video_url": f"/api/video/{request_id}"
-#         })
-
-#     except subprocess.TimeoutExpired:
-#         processing_status[request_id]["status"] = "failed"
-#         processing_status[request_id]["error"] = "Processing timeout"
-#         raise HTTPException(status_code=504, detail="Video processing timeout")
 #     except Exception as e:
-#         processing_status[request_id]["status"] = "failed"
-#         processing_status[request_id]["error"] = str(e)
-#         if video_path.exists():
-#             video_path.unlink()
-#         raise HTTPException(status_code=500, detail=str(e))
+#         raise HTTPException(status_code=500, detail=f"Failed to save uploaded file: {e}")
 
+#     # Set initial status
+#     # --- FIX ---
+#     # Removed 'video_type' from the status dictionary
+#     processing_status[request_id] = {"status": "processing", "prompt": prompt}
+#     # --- END FIX ---
+    
+#     # Call the "find_demo_video" function
+#     asyncio.create_task(find_demo_video(request_id, video.filename))
+
+#     return JSONResponse({
+#         "request_id": request_id,
+#         "status": "processing",
+#         "message": "Video generation started (Demo Mode).",
+#         "status_url": f"/api/status/{request_id}"
+#     })
 
 # @app.get("/api/video/{request_id}")
 # async def get_video(request_id: str):
 #     if request_id not in processing_status:
-#         raise HTTPException(status_code=404, detail="Video not found")
+#         raise HTTPException(status_code=404, detail="Video request not found.")
+    
 #     info = processing_status[request_id]
+    
 #     if info["status"] != "completed":
-#         raise HTTPException(status_code=400, detail=f"Video not ready: {info['status']}")
-#     path = Path(info["output_path"])
-#     if not path.exists():
-#         raise HTTPException(status_code=404, detail="Video file missing")
-#     return FileResponse(path, media_type="video/mp4", filename=f"guide_video_{request_id}.mp4")
-
+#         error_detail = info.get("error", f"Current status: {info['status']}")
+#         raise HTTPException(status_code=400, detail=f"Video not ready. {error_detail}")
+        
+#     path = Path(info.get("output_path"))
+    
+#     if not path or not path.exists():
+#         raise HTTPException(status_code=404, detail="Demo video file is missing from the server.")
+        
+#     return FileResponse(path, media_type="video/mp4", filename=f"generated_video_{request_id}.mp4")
 
 # @app.get("/api/status/{request_id}")
 # async def get_status(request_id: str):
 #     if request_id not in processing_status:
-#         raise HTTPException(status_code=404, detail="Request not found")
+#         raise HTTPException(status_code=404, detail="Request ID not found.")
 #     return processing_status[request_id]
-
 
 # @app.delete("/api/video/{request_id}")
 # async def delete_video(request_id: str):
 #     if request_id not in processing_status:
-#         raise HTTPException(status_code=404, detail="Video not found")
-#     info = processing_status[request_id]
-#     if "output_path" in info:
-#         path = Path(info["output_path"])
-#         if path.exists():
-#             path.unlink()
+#         raise HTTPException(status_code=404, detail="Video request not found.")
+    
+#     # Delete the uploaded video
+#     for f in UPLOAD_DIR.glob(f"{request_id}_*"):
+#         if f.is_file():
+#             f.unlink()
+            
+#     # We NO LONGER delete the output file
 #     del processing_status[request_id]
-#     return {"message": "Video deleted successfully"}
-
+#     return {"message": "Request data and uploaded file deleted successfully."}
 
 # if __name__ == "__main__":
 #     import uvicorn
-#     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
-
+#     uvicorn.run(app, host="0.0.0.0", port=8000)
+import sys
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -164,6 +165,19 @@ from pathlib import Path
 import shutil
 import uuid
 import asyncio
+import traceback
+
+# --- NEW IMPORT ---
+from fastapi.concurrency import run_in_threadpool
+
+# --- Import the real pipeline ---
+try:
+    from run_pipeline import run_full_pipeline
+except ImportError:
+    print("❌ Critical Error: 'run_pipeline.py' not found.")
+    print("Make sure 'run_pipeline.py' is in the same directory as this 'main.py' file.")
+    sys.exit(1)
+
 
 app = FastAPI(title="AI Video Guide Generator API")
 
@@ -189,33 +203,42 @@ app.add_middleware(
 
 # --- In-memory Store ---
 processing_status = {}
+# (Note: This is fine for a demo, but for production with multiple workers,
+# you'd replace this with Redis or a database)
 
-# --- Helper Function for Background Simulation ---
-async def simulate_video_processing(request_id: str, video_type: str):
+# --- Helper Function for ACTUAL Background Processing ---
+async def process_video_pipeline(request_id: str, video_path: Path, prompt: str, voice: str):
+    """
+    Runs the full video generation pipeline in a separate thread pool.
+    Updates the processing_status dictionary with success or failure.
+    """
     try:
-        final_video_name = ""
-        if video_type == "direct":
-            await asyncio.sleep(120)  # Wait for 3 minutes (180 seconds)
-            final_video_name = "screen_recording2_direct_final_video.mp4"
-        else:  # creative
-            await asyncio.sleep(120)  # Wait for 5 seconds
-            final_video_name = "screen_recording2_creative_final_video.mp4"
-
-        final_video_path = OUTPUT_DIR / final_video_name
+        print(f"[{request_id}] Starting video processing for: {video_path.name}")
+        
+        # --- THIS IS THE CRITICAL FIX ---
+        # Run the blocking function in a thread pool to avoid freezing the server
+        await run_in_threadpool(run_full_pipeline, str(video_path), prompt, voice)
+        # -----------------------------
+        
+        # 2. If successful, determine the output path
+        video_name = video_path.stem
+        final_video_path = OUTPUT_DIR / video_name / f"{video_name}_final_guide.mp4"
 
         if not final_video_path.is_file():
-            processing_status[request_id].update({
-                "status": "failed",
-                "error": f"Required video '{final_video_name}' not found in the 'outputs' folder."
-            })
-            return
+            print(f"[{request_id}] ERROR: Pipeline finished but output file not found at {final_video_path}")
+            raise FileNotFoundError(f"Pipeline completed but final video was not created at {final_video_path}.")
 
+        # 3. Update status to 'completed'
         processing_status[request_id].update({
             "status": "completed",
             "output_path": str(final_video_path)
         })
+        print(f"[{request_id}] Video processing COMPLETED. Output: {final_video_path}")
 
     except Exception as e:
+        # 4. If failed, update status to 'failed'
+        print(f"[{request_id}] Video processing FAILED. Error: {e}")
+        traceback.print_exc() # Log the full error to the console
         processing_status[request_id].update({"status": "failed", "error": str(e)})
 
 # --- API Endpoints ---
@@ -230,15 +253,22 @@ async def serve_frontend():
 async def generate_video(
     video: UploadFile = File(...),
     prompt: str = Form(...),
-    video_type: str = Form(...)
+    voice: str = Form("nova")
 ):
     request_id = str(uuid.uuid4())
+    # Save uploaded video with a unique name to avoid conflicts
     video_path = UPLOAD_DIR / f"{request_id}_{video.filename}"
-    with open(video_path, "wb") as buffer:
-        shutil.copyfileobj(video.file, buffer)
+    try:
+        with open(video_path, "wb") as buffer:
+            shutil.copyfileobj(video.file, buffer)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save uploaded file: {e}")
 
-    processing_status[request_id] = {"status": "processing", "video_type": video_type, "prompt": prompt}
-    asyncio.create_task(simulate_video_processing(request_id, video_type))
+    # Set initial status (video_type removed)
+    processing_status[request_id] = {"status": "processing", "prompt": prompt, "voice": voice}
+
+    # Run the REAL pipeline in the background
+    asyncio.create_task(process_video_pipeline(request_id, video_path, prompt, voice))
 
     return JSONResponse({
         "request_id": request_id,
@@ -251,13 +281,18 @@ async def generate_video(
 async def get_video(request_id: str):
     if request_id not in processing_status:
         raise HTTPException(status_code=404, detail="Video request not found.")
+    
     info = processing_status[request_id]
+    
     if info["status"] != "completed":
         error_detail = info.get("error", f"Current status: {info['status']}")
         raise HTTPException(status_code=400, detail=f"Video not ready. {error_detail}")
+        
     path = Path(info.get("output_path"))
+    
     if not path or not path.exists():
         raise HTTPException(status_code=404, detail="Video file is missing from the server.")
+        
     return FileResponse(path, media_type="video/mp4", filename=f"generated_video_{request_id}.mp4")
 
 @app.get("/api/status/{request_id}")
@@ -270,12 +305,37 @@ async def get_status(request_id: str):
 async def delete_video(request_id: str):
     if request_id not in processing_status:
         raise HTTPException(status_code=404, detail="Video request not found.")
-    for f in UPLOAD_DIR.glob(f"{request_id}_*"):
+    
+    # --- FIXED FILE DELETION LOGIC ---
+    # Delete the uploaded video
+    # Reconstruct the unique upload path
+    info = processing_status[request_id]
+    original_stem = Path(info.get("prompt", "video")).stem # Failsafe
+    
+    # Find the uploaded file (we don't know the suffix, so glob)
+    for f in UPLOAD_DIR.glob(f"*_{request_id}.*"):
         if f.is_file():
+            print(f"Deleting uploaded file: {f}")
             f.unlink()
+            break
+            
+    # Delete the generated video and its directory
+    if info.get("status") == "completed":
+        output_path = Path(info.get("output_path"))
+        if output_path.exists():
+            # The output path is .../outputs/STEM_REQUEST_ID/STEM_REQUEST_ID_final_guide.mp4
+            # We need to delete the parent directory
+            output_dir = output_path.parent
+            if output_dir.exists():
+                print(f"Deleting output directory: {output_dir}")
+                shutil.rmtree(output_dir, ignore_errors=True)
+    # ---------------------------------
+
     del processing_status[request_id]
-    return {"message": "Request data and uploaded file deleted successfully."}
+    return {"message": "Request data and associated files deleted successfully."}
 
 if __name__ == "__main__":
     import uvicorn
+    print("--- Starting AI Video Guide Server ---")
+    print("Access the frontend at: http://127.0.0.1:8000")
     uvicorn.run(app, host="0.0.0.0", port=8000)
